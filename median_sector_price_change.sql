@@ -90,10 +90,10 @@ BEGIN
 										                THEN percentage_3year_change END), 2) AS percentage_3year_change_median_sector,
 								ROUND(AVG(CASE WHEN rn_stddev_1w_change = FLOOR((total_rows + 1) / 2) 
 										                OR (total_rows % 2 = 0 AND rn_stddev_1w_change IN (total_rows / 2, total_rows / 2 + 1)) 
-										                THEN stddev_1w_change END), 2) * 100 AS stddev_1w_change_median_sector,
+										                THEN stddev_1w_change END), 4) * 100 AS stddev_1w_change_median_sector,
 								ROUND(AVG(CASE WHEN rn_stddev_1m_change = FLOOR((total_rows + 1) / 2) 
 										                OR (total_rows % 2 = 0 AND rn_stddev_1m_change IN (total_rows / 2, total_rows / 2 + 1)) 
-										                THEN stddev_1m_change END), 2) * 100 AS stddev_1m_change_median_sector	                
+										                THEN stddev_1m_change END), 4) * 100 AS stddev_1m_change_median_sector	                
 				FROM ranked_data rd
 				GROUP BY rd.sector_id, rd.exchange_id
 				ORDER BY rd.sector_id, rd.exchange_id )t ) AS sub on mim.sector_id = sub.sector_id AND mim.exchange_id = sub.exchange_id
@@ -110,3 +110,5 @@ BEGIN
     	-- Обновление логирования процедуры после завершения
 	UPDATE _procedure_calls SET finish = NOW() WHERE name = @nameDaily AND start = @startDaily;
 END;
+
+CALL median_sector_price_change();

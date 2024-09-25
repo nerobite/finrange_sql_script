@@ -50,6 +50,14 @@ BEGIN
 								eps_cagr_3y,
 								eps_cagr_5y,
 								eps_cagr_10y,
+								debt_growth_1y,
+								debt_growth_3y,
+								debt_growth_5y,
+								debt_growth_10y,
+								netDebt_growth_1y,
+								netDebt_growth_3y,
+								netDebt_growth_5y,
+								netDebt_growth_10y,
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by revenue_growth_1y) as rn_revenue_growth_1y,
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by revenue_growth_3y) as rn_revenue_growth_3y,
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by revenue_growth_5y) as rn_revenue_growth_5y,
@@ -85,6 +93,14 @@ BEGIN
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by eps_cagr_3y) as rn_eps_cagr_3y,
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by eps_cagr_5y) as rn_eps_cagr_5y,
 								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by eps_cagr_10y) as rn_eps_cagr_10y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by debt_growth_1y) as rn_debt_growth_1y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by debt_growth_3y) as rn_debt_growth_3y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by debt_growth_5y) as rn_debt_growth_5y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by debt_growth_10y) as rn_debt_growth_10y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by netDebt_growth_1y) as rn_netDebt_growth_1y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by netDebt_growth_3y) as rn_netDebt_growth_3y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by netDebt_growth_5y) as rn_netDebt_growth_5y,
+								ROW_NUMBER() over(PARTITION by c.sector_id, c.exchange_id order by netDebt_growth_10y) as rn_netDebt_growth_10y,
 								COUNT(*) OVER (PARTITION BY c.sector_id, c.exchange_id) AS total_rows
 						from historical_annual_metrics ham 
 						join companies c on c.id = ham.company_id
@@ -194,7 +210,31 @@ BEGIN
 											                THEN eps_cagr_5y END), 2) AS eps_cagr_5y_median_sector,
 									ROUND(AVG(CASE WHEN rn_eps_cagr_10y = FLOOR((total_rows + 1) / 2) 
 											                OR (total_rows % 2 = 0 AND rn_eps_cagr_10y IN (total_rows / 2, total_rows / 2 + 1)) 
-											                THEN eps_cagr_10y END), 2) AS eps_cagr_10y_median_sector
+											                THEN eps_cagr_10y END), 2) AS eps_cagr_10y_median_sector,
+									ROUND(AVG(CASE WHEN rn_debt_growth_1y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_debt_growth_1y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN debt_growth_1y END), 2) AS debt_growth_1y_median_sector,
+						            ROUND(AVG(CASE WHEN rn_debt_growth_3y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_debt_growth_3y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN debt_growth_3y END), 2) AS debt_growth_3y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_debt_growth_5y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_debt_growth_5y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN debt_growth_5y END), 2) AS debt_growth_5y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_debt_growth_10y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_debt_growth_10y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN debt_growth_10y END), 2) AS debt_growth_10y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_netDebt_growth_1y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_netDebt_growth_1y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN netDebt_growth_1y END), 2) AS netDebt_growth_1y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_netDebt_growth_3y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_netDebt_growth_3y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN netDebt_growth_3y END), 2) AS netDebt_growth_3y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_netDebt_growth_5y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_netDebt_growth_5y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN netDebt_growth_5y END), 2) AS netDebt_growth_5y_median_sector,
+					                ROUND(AVG(CASE WHEN rn_netDebt_growth_10y = FLOOR((total_rows + 1) / 2) 
+											                OR (total_rows % 2 = 0 AND rn_netDebt_growth_10y IN (total_rows / 2, total_rows / 2 + 1)) 
+											                THEN netDebt_growth_10y END), 2) AS netDebt_growth_10y_median_sector
 					FROM ranked_data
 					GROUP BY sector_id, exchange_id
 					ORDER BY sector_id, exchange_id) t ) AS sub on mim.sector_id = sub.sector_id AND mim.exchange_id = sub.exchange_id
@@ -232,7 +272,15 @@ BEGIN
 			mim.eps_growth_10y_median_sector = sub.eps_growth_10y_median_sector,
 			mim.eps_cagr_3y_median_sector = sub.eps_cagr_3y_median_sector,
 			mim.eps_cagr_5y_median_sector = sub.eps_cagr_5y_median_sector,
-			mim.eps_cagr_10y_median_sector = sub.eps_cagr_10y_median_sector;
+			mim.eps_cagr_10y_median_sector = sub.eps_cagr_10y_median_sector,
+			mim.debt_growth_1y_median_sector = sub.debt_growth_1y_median_sector,
+			mim.debt_growth_3y_median_sector = sub.debt_growth_3y_median_sector,
+			mim.debt_growth_5y_median_sector = sub.debt_growth_5y_median_sector,
+			mim.debt_growth_10y_median_sector = sub.debt_growth_10y_median_sector,
+			mim.netDebt_growth_1y_median_sector = sub.netDebt_growth_1y_median_sector,
+			mim.netDebt_growth_3y_median_sector = sub.netDebt_growth_3y_median_sector,
+			mim.netDebt_growth_5y_median_sector = sub.netDebt_growth_5y_median_sector,
+			mim.netDebt_growth_10y_median_sector = sub.netDebt_growth_10y_median_sector;
 		
 	-- фиксируем обновление
     COMMIT;	
@@ -249,7 +297,7 @@ BEGIN
 								from dividend_sources ds 
 								join companies c on ds.company_id = c.id 
 								LEFT JOIN prices p ON ds.company_id = p.company_id AND ds.t2Date = p.`date` 
-								where ds.t2Date >= CURDATE() - INTERVAL 1 YEAR 
+								where ds.t2Date >= (SELECT MAX(ds2.t2Date) from dividend_sources ds2 where ds.company_id = ds2.company_id) 
 								GROUP BY ds.company_id) t)
 				SELECT rd.sector_id, rd.exchange_id,
 								ROUND(AVG(CASE WHEN rn_Div_yield_year = FLOOR((total_rows + 1) / 2) 
@@ -337,3 +385,5 @@ BEGIN
     	-- Обновление логирования процедуры после завершения
 	UPDATE _procedure_calls SET finish = NOW() WHERE name = @nameDaily AND start = @startDaily;
 END;
+
+call median_sector_dividends();
