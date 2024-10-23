@@ -1,5 +1,3 @@
- DELIMITER $$
-
 CREATE OR REPLACE PROCEDURE create_ltm_financial_indicators()
 BEGIN
     DECLARE done INT DEFAULT FALSE;
@@ -76,10 +74,10 @@ BEGIN
                 SUM(IF(depreciation IS NULL, 0, depreciation)) AS depreciation,
                 SUM(IF(salePurchaseOfStock IS NULL, 0, salePurchaseOfStock)) AS salePurchaseOfStock,
                 SUM(IF(totalCashFromFinancingActivities IS NULL, 0, totalCashFromFinancingActivities)) AS totalCashFromFinancingActivities,
-                SUM(IF(totalCashFromOperatingActivities IS NULL, 0, totalCashFromOperatingActivities)) AS totalCashFromOperatingActivities,
+                SUM(IF(totalCashFromOperatingActivities IS NULL, investments, totalCashFromOperatingActivities)) AS totalCashFromOperatingActivities,
                 SUM(IF(totalCashflowsFromInvestingActivities IS NULL, 0, totalCashflowsFromInvestingActivities)) AS totalCashflowsFromInvestingActivities,
                 SUM(IF(costOfRevenue IS NULL, 0, costOfRevenue)) AS costOfRevenue,
-                SUM(IF(ebit IS NULL, 0, ebit)) AS ebit,
+                SUM(IF(ebit IS NULL, incomeBeforeTax + interestExpense + interestIncome, ebit)) AS ebit,
                 SUM(IF(grossProfit IS NULL, 0, grossProfit)) AS grossProfit,
                 SUM(IF(incomeBeforeTax IS NULL, 0, incomeBeforeTax)) AS incomeBeforeTax,
                 SUM(IF(incomeTaxExpense IS NULL, 0, incomeTaxExpense)) AS incomeTaxExpense,
@@ -89,7 +87,7 @@ BEGIN
                 SUM(IF(nonOperatingIncomeNetOther IS NULL, 0, nonOperatingIncomeNetOther)) AS nonOperatingIncomeNetOther,
                 SUM(IF(totalOperatingExpenses IS NULL, 0, totalOperatingExpenses)) AS totalOperatingExpenses,
                 SUM(IF(totalRevenue IS NULL, 0, totalRevenue)) AS totalRevenue,
-                SUM(IF(ebitda IS NULL, 0, ebitda)) AS ebitda,
+                SUM(IF(ebitda IS NULL, incomeBeforeTax + interestExpense + interestIncome + depreciation, ebitda)) AS ebitda, 
                 SUM(IF(freeCashFlow IS NULL, 0, freeCashFlow)) AS freeCashFlow
             FROM 
                 (
@@ -131,17 +129,17 @@ BEGIN
     END LOOP;
     -- Закрываем курсор
     CLOSE company_cursor;
-    -- дабавляем значения на конец отчетного периода 
-    CALL last_ltm_financial_indicators();
-    -- обновляем расчетные показатели
-    CALL update_ltm_financial_indicators();
-    -- обновляем
-   	CALL FillCommonStockSharesOutstanding();
     -- Обновление логирования процедуры после завершения
 	UPDATE _procedure_calls SET finish = NOW() WHERE name = @nameDaily AND start = @startDaily;
+    -- дабавляем значения на конец отчетного периода 
+    CALL last_ltm_financial_indicators();
+        -- обновляем
+   	CALL FillCommonStockSharesOutstanding();
+    -- обновляем расчетные показатели
+    CALL update_ltm_financial_indicators();
+    -- обновляем метрики роста компании
+    CALL update_growth_ltm_financial_indicators(); 
 END;
-
-$$
 
 
 -----тесты
