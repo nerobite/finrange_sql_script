@@ -5,7 +5,7 @@ BEGIN
     SET @nameDaily := 'create_ltm_price';
     INSERT INTO _procedure_calls (name, start, finish) VALUES (@nameDaily, @startDaily, NULL);
     
-    -- вносим данные о ценах в таблицу price_temp_templ на момент выхода отчета, кроме последнего, который выдается на последнюю известную цену
+    -- вносим данные о ценах в таблицу price_temp_templ на момент выхода отчета
     INSERT IGNORE INTO price_temp_table (company_id, date, close)
     SELECT lfi.company_id, lfi.end_date, p.close
 	FROM ltm_financial_indicators lfi

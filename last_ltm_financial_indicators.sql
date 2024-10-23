@@ -28,9 +28,9 @@ BEGIN
 			IF(totalCurrentLiabilities IS NULL, 0, totalCurrentLiabilities) AS totalCurrentLiabilities,
 			IF(totalLiab IS NULL, 0, totalLiab) AS totalLiab,
 			IF(totalStockholderEquity IS NULL, 0, totalStockholderEquity) AS totalStockholderEquity,
-			IF(cashAndEquivalents IS NULL, 0, cashAndEquivalents) AS cashAndEquivalents,
-			IF(netDebt IS NULL, 0, netDebt) AS netDebt,
-			IF(debt IS NULL, 0, debt) AS debt,
+			IF(cashAndEquivalents IS NULL, IFNULL(cash, 0), cashAndEquivalents) AS cashAndEquivalents,
+			IF(netDebt IS NULL, longTermDebt + shortTermDebt - (IF(cashAndEquivalents IS NULL, IFNULL(cash, 0), cashAndEquivalents)), netDebt) AS netDebt,
+			IF(debt IS NULL, longTermDebt + shortTermDebt, debt) AS debt, 
 			totalCurrentAssets - totalCurrentLiabilities as net_working_capital
 		FROM financial_statement_quarter fsq
 		) AS sub on lfi.company_id = sub.company_id and lfi.end_date = sub.date
@@ -57,3 +57,6 @@ BEGIN
     	-- Обновление логирования процедуры после завершения
 	UPDATE _procedure_calls SET finish = NOW() WHERE name = @nameDaily AND start = @startDaily;
 END;
+
+
+call last_ltm_financial_indicators();

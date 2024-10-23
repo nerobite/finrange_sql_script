@@ -42,7 +42,7 @@ CREATE TABLE `dividend_graphs` (
 
 #########################################################################################################################################
 -- новая процедура
-CREATE OR REPLACE DEFINER = `developer`@`%` PROCEDURE `dividendsUpdateGraphFromSource`()
+CREATE OR REPLACE PROCEDURE `dividendsUpdateGraphFromSource`()
 BEGIN
     -- выполняем логирование процедуры
     SET @startDaily := NOW();
@@ -55,58 +55,55 @@ BEGIN
    
    	START TRANSACTION;
    
-    -- Вставка данных с обновлением существующих записей
-    INSERT INTO dividend_graphs (company_id, year, Divi_year, dividend, yield, PDR, Div_yield_year, DFCFR, DPR, DGR, DGR_3Y, DGR_5Y, DGR_10Y, Div_CAGR_3Y, Div_CAGR_5Y, Div_CAGR_10Y)
-	SELECT  
-	    t.company_id,
-	    t.`year`,
-	    t.Divi_year,
-	    t.dividend,
-	    t.yield,
-	    t.PDR,
-	    t.Div_yield_year,
-	    t.DFCFR,
-	    t.DPR,
-	    ROUND((dividend / lag(dividend) OVER (PARTITION BY t.company_id ORDER BY t.`year`) - 1) * 100, 2) AS DGR,
-	    ROUND((dividend / lag(dividend, 3) OVER (PARTITION BY t.company_id ORDER BY t.`year`) - 1) * 100, 2) AS DGR_3Y,
-	    ROUND((dividend / lag(dividend, 5) OVER (PARTITION BY t.company_id ORDER BY t.`year`) - 1) * 100, 2) AS DGR_5Y,
-	    ROUND((dividend / lag(dividend, 10) OVER (PARTITION BY t.company_id ORDER BY t.`year`) - 1) * 100, 2) AS DGR_10Y,
-	    ROUND((POWER(dividend / lag(dividend, 3) OVER (PARTITION BY t.company_id ORDER BY t.`year`), 1/3) - 1) * 100, 2) AS Div_CAGR_3Y,
-	    ROUND((POWER(dividend / lag(dividend, 5) OVER (PARTITION BY t.company_id ORDER BY t.`year`), 1/5) - 1) * 100, 2) AS Div_CAGR_5Y,
-	    ROUND((POWER(dividend / lag(dividend, 10) OVER (PARTITION BY t.company_id ORDER BY t.`year`), 1/10) - 1) * 100, 2) AS Div_CAGR_10Y
-	FROM (
+    -- Вставка данных 
+	INSERT INTO dividend_graphs (company_id, year, Divi_year, dividend, yield, PDR, Div_yield_year, DFCFR, DPR)
 	    SELECT 
 	        ds.company_id,
 	        ds.`year`,
 	        ROUND(SUM(ds.dividend) * fsa.commonStockSharesOutstanding, 2) AS Divi_year,
 	        SUM(ds.dividend) AS dividend,
 	        SUM(ds.yield) AS yield,
-	        ROUND(AVG(p.adj_close) / SUM(ds.dividend), 2) AS PDR,
-	        ROUND(SUM(ds.dividend) / AVG(p.adj_close) * 100, 2) AS Div_yield_year,
+	        ROUND(AVG(ds.price) / SUM(ds.dividend), 2) AS PDR,
+	        ROUND(SUM(ds.dividend) / AVG(ds.price) * 100, 2) AS Div_yield_year,
 	        ROUND(SUM(ds.dividend) * fsa.commonStockSharesOutstanding / fsa.freeCashFlow * 100, 2) AS DFCFR,
 	        ROUND(SUM(ds.dividend) * fsa.commonStockSharesOutstanding / fsa.netIncome * 100, 2) AS DPR
 	    FROM dividend_sources ds
-	    LEFT JOIN prices p ON ds.company_id = p.company_id AND ds.t2Date = p.`date` 
 	    LEFT JOIN financial_statement_annual fsa ON ds.company_id = fsa.company_id AND ds.`year` = fsa.`year`
 	    GROUP BY ds.company_id, ds.`year`
-	) t
-	ON DUPLICATE KEY UPDATE
-		company_id = company_id,
-		`year` = `year`,
-	    Divi_year = VALUES(Divi_year),
-	    dividend = VALUES(dividend),
-	    yield = VALUES(yield),
-	    PDR = VALUES(PDR),
-	    Div_yield_year = VALUES(Div_yield_year),
-	    DFCFR = VALUES(DFCFR),
-	    DPR = VALUES(DPR),
-	    DGR = VALUES(DGR),
-	    DGR_3Y = VALUES(DGR_3Y),
-	    DGR_5Y = VALUES(DGR_5Y),
-	    DGR_10Y = VALUES(DGR_10Y),
-	    Div_CAGR_3Y = VALUES(Div_CAGR_3Y),
-	    Div_CAGR_5Y = VALUES(Div_CAGR_5Y),
-	    Div_CAGR_10Y = VALUES(Div_CAGR_10Y);
+		ON DUPLICATE KEY UPDATE
+			    Divi_year = VALUES(Divi_year),
+			    dividend = VALUES(dividend),
+			    yield = VALUES(yield),
+			    PDR = VALUES(PDR),
+			    Div_yield_year = VALUES(Div_yield_year),
+			    DFCFR = VALUES(DFCFR),
+			    DPR = VALUES(DPR);
+	
+    COMMIT;
+	   
+	-- вычисляем динамику роста   
+	UPDATE dividend_graphs AS dg
+	JOIN (
+		SELECT  
+			    company_id,
+			    `year`,
+			    ROUND((dividend / lag(dividend) OVER (PARTITION BY company_id ORDER BY `year`) - 1) * 100, 2) AS DGR,
+			    ROUND((dividend / lag(dividend, 3) OVER (PARTITION BY company_id ORDER BY `year`) - 1) * 100, 2) AS DGR_3Y,
+			    ROUND((dividend / lag(dividend, 5) OVER (PARTITION BY company_id ORDER BY `year`) - 1) * 100, 2) AS DGR_5Y,
+			    ROUND((dividend / lag(dividend, 10) OVER (PARTITION BY company_id ORDER BY `year`) - 1) * 100, 2) AS DGR_10Y,
+			    ROUND((POWER(dividend / lag(dividend, 3) OVER (PARTITION BY company_id ORDER BY `year`), 1/3) - 1) * 100, 2) AS Div_CAGR_3Y,
+			    ROUND((POWER(dividend / lag(dividend, 5) OVER (PARTITION BY company_id ORDER BY `year`), 1/5) - 1) * 100, 2) AS Div_CAGR_5Y,
+			    ROUND((POWER(dividend / lag(dividend, 10) OVER (PARTITION BY company_id ORDER BY `year`), 1/10) - 1) * 100, 2) AS Div_CAGR_10Y
+			FROM  dividend_graphs ds
+			WHERE ds.`year` < YEAR(CURDATE()) and company_id = 1937
+			) as sub on  dg.company_id = sub.company_id and dg.year = sub.year
+	SET dg.DGR = sub.DGR,
+	    dg.DGR_3Y = sub.DGR_3Y,
+	    dg.DGR_5Y = sub.DGR_5Y,
+	    dg.DGR_10Y = sub.DGR_10Y,
+	    dg.Div_CAGR_3Y = sub.Div_CAGR_3Y,
+	    dg.Div_CAGR_5Y = sub.Div_CAGR_5Y,
+	    dg.Div_CAGR_10Y = sub.Div_CAGR_10Y;
 	
 	COMMIT;
 
@@ -180,8 +177,28 @@ BEGIN
 		dg.avg_growth_div_5yer_sector = sub.avg_growth_div_5yer_sector,
 		dg.avg_growth_div_10yer_sector = sub.avg_growth_div_10yer_sector;
 	
-	-- количество непрерывных лет выплат дивидендов и количесте непрерывных лет роста дивов
+	-- количество непрерывных лет выплат дивидендов
 	UPDATE dividend_graphs  set continuous_div_start_year = 0;
+    UPDATE dividend_graphs, (
+        with cte as (
+			SELECT company_id,
+		         year,
+		         SUM(year_without_div) OVER (PARTITION BY company_id ORDER BY year desc) year_without_div
+			from (
+					select company_id,
+			                 year,
+			                 year - COALESCE(LEAD(year) over (PARTITION BY company_id ORDER BY YEAR desc), 0) != 1 as year_without_div
+					from dividend_graphs
+					where dividend > 0)t) -- `year` = YEAR(CURDATE()) -1) and 
+		select company_id, IF(SUM(!year_without_div)>0, SUM(!year_without_div) + 1, 0) as cdy
+		from cte
+		group by 1) div_year_date
+    SET continuous_div_start_year = div_year_date.cdy
+    where dividend_graphs.company_id = div_year_date.company_id;
+   
+   
+	-- количество лет роста дивидендов без текущего года, т.к. год не закончился
+	UPDATE dividend_graphs  set continuous_div_grow_year = 0;
     UPDATE dividend_graphs, (
         with cte as (
 			SELECT company_id,
@@ -194,13 +211,12 @@ BEGIN
 			                 year - COALESCE(LEAD(year) over (PARTITION BY company_id ORDER BY YEAR desc), 0) != 1 as year_without_div,
 			                 dividend - COALESCE(lag(dividend) over(PARTITION by company_id order by year), 0) < 0 as year_without_g_div
 					from dividend_graphs
-					where year <= (YEAR(NOW()) - 1) and dividend > 0)t)
+					where (`year` <= YEAR(CURDATE()) -1) and dividend > 0) t)
 		select company_id, IF(SUM(!year_without_div)>0, SUM(!year_without_div) + 1, 0) as cdy,
 		IF(SUM(!year_without_div)>0 and SUM(!year_without_g_div)>0, IF(SUM(!year_without_div) >= SUM(!year_without_g_div), SUM(!year_without_g_div)+1, SUM(!year_without_div)+1), 0) as cgdy
 		from cte
 		group by 1) div_year_date
-    SET continuous_div_start_year = div_year_date.cdy,
-   		continuous_div_grow_year = div_year_date.cgdy
+    SET continuous_div_grow_year = div_year_date.cgdy
     where dividend_graphs.company_id = div_year_date.company_id;
 	
 	COMMIT;
@@ -222,7 +238,7 @@ BEGIN
 				ROW_NUMBER() OVER(PARTITION BY ds.company_id) as num
 			from dividend_sources ds 
 			where YEAR(ds.year) = YEAR(CURDATE())) ds on dg.company_id = ds.company_id
-		WHERE dg.year <= YEAR(NOW()) - 1
+		WHERE dg.year <= YEAR(CURDATE()) - 1
 		group by dg.company_id),
 	cte2 as ( -- рассчет G𝑐 
 		SELECT t.company_id,
@@ -278,6 +294,21 @@ BEGIN
 	SET dividend_graphs.dsi = div_dsi.dsi
 	where dividend_graphs.company_id = div_dsi.company_id;
 		
+	UPDATE dividend_graphs, (
+	SELECT t.company_id, 
+		ROUND(SUM(t.dividend / t.price) * 100, 2) AS Div_yield_year_ltm
+	FROM (
+		SELECT 
+			        ds.company_id,
+			        ds.dividend,
+			        ds.price,
+			        ds.t2Date
+		FROM dividend_sources ds
+		WHERE (ds.t2Date >= CURDATE() - INTERVAL 12 MONTH)) t
+	GROUP BY t.company_id) AS dyltm
+	SET dividend_graphs.Div_yield_year_ltm = dyltm.Div_yield_year_ltm
+	WHERE dividend_graphs.company_id = dyltm.company_id;
+
     COMMIT;
     -- Восстанавливаем начальные настройки режима SQL
     SET SESSION sql_mode = @original_sql_mode;
